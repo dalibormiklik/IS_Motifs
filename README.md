@@ -1,7 +1,7 @@
 Supporting data and code for the publication:
 # Unraveling the Palindromic and Non-Palindromic Motifs of Retroviral Integration Sites by Statistical Mixture Models
 
-The depistory is divided into three main parts:
+The depository is divided into three main parts:
 - **Data**
 - **Code**
 - **Results**
