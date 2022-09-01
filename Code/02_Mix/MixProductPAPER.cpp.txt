@@ -1,0 +1,261 @@
+// GENOM_S.cpp : Structural EM algorithm for evaluation of IS/sequences
+#include <stdio.h>     
+#include <stdlib.h>    
+#include <ctime>	  
+#include <math.h>  
+#include <assert.h>
+
+const int    RS       = 13;		// neighbourhood of the integration site
+const int    NN       = 2*RS;		// length of the nucleotide sequence 
+const int    DNN      = NN+1;		// dimension of the vector X  
+const int    MM		  = 50;		// number of mixture components
+const int    DMM      = MM+1;	    	// dimension of component parameter vectors 
+const long   KK       = DMM*NN;		// KK*4: maximum number of specific mixture parameters
+const long   DKK      = KK+1;		// maximum dimension of specific mixture parameters
+const double EPS      = 0.00001;    	// threshold of minimum increment of EM algorithm
+const int    TR       = 55384;		// number of IS sequences X in the data file SOURCE
+const int    ITERMAX  = 100;	    	// maximum number of EM iterations 
+const double RMAX     =1e200;		// large real number
+const double RMIN     =1e-200;		// small real number
+const long   INIRAND  = 572689314;	// initial seed for pseudorandom numbers
+
+FILE  *SOURCE=NULL,*TRAIN=NULL,  *Report=NULL,*PARAM=NULL;
+#define FILE_SOURCE  "C:/DATA/SOURCE.txt"           // file of IS sequences X[DNN]
+#define FILE_TRAIN   "../data/TRAIN.BIN"	    // IS-sequences X[DNN]: input data file
+#define FILE_Report	 "../Release/Report.GEN"    // computation protocol
+#define FILE_PARAM   "../Release/PARAM.GEN"	    // output file of mixture parameters
+
+int YSOURCE(int TR);
+int YINIPAR(int MMI);  int FULLPARAMOUT(int MMI); int RCDISTANCE(int MMI); int RR();
+
+// global variables
+int	     I,IT,IIT,MMP;   	
+double   RANDMAX,MINLOG,MIN1,MAX1,MIN2,MAX,COEF=0.2;
+double   Q,Q0,QRC,DQ,MFM,FII,PI,P1[DNN][5],P2[DNN][5],R,SR[1000];
+double   DP[DMM][DMM];
+short    X[DNN];				// IS data sequence 			
+short    Y[DNN];				// IS data sequence
+int      N_[DKK];				// index of K-th specific variable (1<=N_[K]<=NN)
+double   P[DKK][5];				// sequentially stored mixture parameters
+double   LP[DKK][5];				// sequentially stored logarithmic parameters
+double   SP[DMM][DNN][5];			// estimates of the new mixture parameters
+double   FX[DMM];				// component function, weight and weight estimate
+double   W[DMM],SW[DMM];			// component weight and component weight estimate
+long     KA[DMM],KB[DMM];			// index bounds of component specific variables
+		 // W[M]: weight of the M-th component,  M=1,2,...,MM;
+		 // KA[M] index of the first specific variable of the M-th component
+		 // KB[M] index of the last  specific variable of the M-th component
+double   PN[5]={0, 0.296791, 0.204917, 0.20280, 0.295493};   
+		 // PN[5]: background probabilities of A,C,G,T
+
+
+int PARAMOUT(int MMI)
+{   
+    fprintf(Report,"\nOutput of reduced parameter set into file PARAM.GEN"); 
+    int I,J,K,M,N,KM,KKC=KB[MMI];		
+    double F,G,H,SUM; G=RMIN;  
+    
+    if((PARAM=fopen(FILE_PARAM,"wt"))==NULL) {printf("\nCannot open file.\n"); exit(-1);}
+    fprintf(PARAM,"\n%8d%8d%8d",MMI,NN,KKC);		J=KKC=0;    SUM=0.0;
+    for(M=0;M<=MMI;M++)  
+    {   
+	KM=KB[M]-KA[M]+1;	J++;  KKC+=KM;  SUM+=W[M];  
+	fprintf(PARAM,"\n% 7d %7d %11.7lf",M,KM,W[M]); 						
+	for(K=KA[M];K<=KB[M];K++) 
+	{  H=0.0; N=N_[K]; fprintf(PARAM,"\n%4d ",N);    
+	   for(I=1;I<=4;I++){F=P[K][I]+G;fprintf(PARAM,"%10.5lf",F); H+=F*log(F/PN[I]);}
+	   fprintf(PARAM,"%10.3lf",H);
+	}  // end of K-loop
+    }   // end of M-loop
+    fprintf(Report,"\nMM=%5d  NN=%8d  KKC=%8Ld  SUM=%7.4lf",J-1,NN,KKC,SUM);   
+    fclose(PARAM);  fflush(Report);	  
+    return 0;   
+}   // end of PARAMOUT     
+
+
+int RR()    // pseudorandom number
+{	int J;	J=rand()%1000;   R=SR[J];  SR[J]=rand()/RANDMAX;   	return 0;
+}	// end of RR
+
+
+int FULLPARAMOUT(int MMI)
+{   int I,M,N,KKC=MMI*NN;		double F,G,H,SUM; G=RMIN;
+   
+    fprintf(Report,"\nOutput of full parameter set into file PARAM.GEN"); fflush(Report);
+    if((PARAM=fopen(FILE_PARAM,"wt"))==NULL) {printf("\nCannot open file.\n"); exit(-1);}
+    fprintf(PARAM,"\n%8d%8d%8d",MMI,NN,KKC);		   SUM=0.0;
+    for(M=0;M<=MMI;M++)  
+    {   SUM+=W[M]; 	fprintf(PARAM,"\n% 7d %7d %11.7lf",M,NN,W[M]); 						
+	for(N=1;N<=NN;N++) 
+	{  H=0.0; fprintf(PARAM,"\n%4d ",N);    
+	   for(I=1;I<=4;I++){F=SP[M][N][I]+G;fprintf(PARAM,"%10.5lf",F);H+=F*log(F/PN[I]);}
+	   fprintf(PARAM,"%10.3lf",H);
+	}  // end of K-loop
+    }   // end of M-loop
+    fprintf(Report,"\nMM=%5d  NN=%8d  KKC=%8Ld  SUM=%7.4lf",M-1,NN,KKC,SUM);   
+    fclose(PARAM);  fflush(Report);	  	return 0;    
+}   // end of FULLPARAMOUT  
+
+
+int YINIPAR(int MMI)
+{	int I,M,N;  long K=NN;        double G;
+	for(M=1;M<=MMI;M++)
+	{  KA[M]=K+1;	  W[M]=1.0/MMI;
+	   for(N=1;N<=NN;N++)
+	   {  ++K; N_[K]=N; P[K][0]=0.0;   G=0.0; 
+	      for(I=1;I<=4;I++){RR(); P[K][I]=R; G+=R;}   for(I=1;I<=4;I++) P[K][I]/=G;
+           }  KB[M]=K;  // end of N-loop   
+	}  return 0;     // end of M-loop
+}   // end of YINIPAR    
+
+
+int PPMDISTANCE(int MMI)			// absolute distances of components
+{	int I,B,I1,I2,M1,M2;  double F;
+	fprintf(Report,"\n\n Distances of component PPM");    fprintf(Report,
+        "\n  M: ======0======1======2======3======4======5======6======7======8=====9=");
+	for(M1=0;M1<=MMI;M1++)
+	{  fprintf(Report,"\nM=%2d  ",M1);
+	   for(M2=0;M2<=MMI;M2++)
+	   {   F=0.0;
+	       for(I=0;I<NN;I++)
+	       {  I1=KA[M1]+I; I2=KA[M2]+I; for(B=1;B<=4;B++)  F+=abs(P[I1][B]-P[I2][B]);
+	       }  fprintf(Report,"%7.3lf",F/NN);    DP[M1][M2]=F;   // end of I-loop	
+	}   fprintf(Report,			// end of M2-loop
+        "\n---------------------------------------------------------------------------");
+	}    	fflush(Report);   	return 0;
+}  // end of PPMDISTANCE			 diagonal elements: DP[M][M]=0;       
+
+
+int RCDISTANCE(int MMI)
+{	int I,B,I1,I2,M,M1,M2,C[5]={0,4,3,2,1};  double F,QRC=RMAX;     
+	fprintf(Report,"\n\nReverse complement distances of components");     
+	fprintf(Report,"\nW[M]:"); for(M=0;M<=MMI;M++) fprintf(Report,"%8.4lf",W[M]);
+	fprintf(Report,
+        "\n\n  M:======0======1======2======3======4======5======6======7======8=====9=");
+	for(M1=0;M1<=MMI;M1++)
+	{	fprintf(Report,"\nM=%2d  ",M1);
+		for(M2=0;M2<=MMI;M2++)
+		{   F=0.0;
+		    for(I=0;I<NN;I++)	
+		    {  I1=1+I; I2=NN-I; 
+		       if(I1!=I2) for(B=1;B<=4;B++)  F+=abs(SP[M1][I1][B]-SP[M2][I2][C[B]]);
+		    }  // end of I-loop
+		    F/=NN;  fprintf(Report,"%7.3lf",F);  if(M1!=M2) if(F<QRC) QRC=F;
+		}   fprintf(Report,  
+	       "\n---------------------------------------------------------------------");
+	}   fprintf(Report,"\n Minimum QRC=%7.3lf",QRC);      fflush(Report);   return 0;	
+}  // end of RCDISTANCE				diagonal elements correspond to PDeficit      
+
+
+int EMALGO(int MMI,int TRQ)  // EM ALGORITHM:  MMI components, TRQ: number of sequences 	
+{	int I,K,KKC,M,N,IT,IT0;  long L;  
+	double F,G,H0,THR,DQ,FXM,SUM,FMAX,Q0,QQ,LW0[DMM],GAMA[DMM][DNN],SP0,QPN,C0=0.2;
+	
+	fprintf(Report,"\n\nRepeated start of EM algorithm for MM=%3d TR=%7d",MMI,TR); 
+	//  positional probabilities PPM0 for sequences in the input file TRAIN.BIN
+	if((TRAIN=fopen(FILE_TRAIN,"rb"))==NULL){fprintf(Report,"\nTRAIN ??\n");exit(-1);}
+	for(N=0;N<=NN;N++) {N_[N]=N; for(I=0;I<=4;I++) P[N][I]=0.0;}   
+	QPN=0.0; 
+	for(L=1;L<=TR;L++)		// computation of the background likelihood QPN
+	{fread(&X,sizeof(X),1,TRAIN); for(N=1;N<=NN;N++){QPN+=log(PN[X[N]]); P[N][X[N]]+=1.0;}
+	}   // end of L-loop
+	QPN/=TRQ;  fclose(TRAIN);	fflush(Report);
+    for(N=1;N<=NN;N++)					// norming of global PPM0 for TRAIN
+	{   G=0.0; for(I=1;I<=4;I++) G+=P[N][I]; for(I=1;I<=4;I++) SP[0][N][I]=P[N][I]/=G;
+    }   // end of N-loop 
+	QQ=-RMAX;
+	for(IT0=1; IT0<=100; IT0++)  // repeatedly started randomly initialized EM algorithm 
+	//***************************************************************************
+	{ YINIPAR(MMI);   // randomly initialized mixture parameters
+	  Q0=-RMAX;   
+	  for(IT=1; IT<=ITERMAX; IT++)   // EM-iteration loop
+	  { for(M=1;M<=MMI;M++)		// logarithmic mixture parameters and initial values
+		{	LW0[M]=log(W[M]+RMIN);	SW[M]=RMIN;  
+			for(K=KA[M];K<=KB[M];K++)
+			{  LP[K][0]=0;  for(I=1;I<=4;I++) LP[K][I]=log(P[K][I]+RMIN)-log(PN[I]);
+			}  // end of K-loop
+			for(N=1;N<=NN;N++) for(I=0;I<=4;I++) SP[M][N][I]=RMIN;
+		}	// end of M-loop
+		if((TRAIN=fopen(FILE_TRAIN,"rb"))==NULL){printf("\nOpen TRAIN?");exit(-1);}
+		Q=0.0;  MFM=RMIN;  
+		for(L=1;L<=TRQ;L++)			// input data cycle: file TRA
+		{	FMAX=-RMAX;	  fread(&X,sizeof(X),1,TRAIN);   
+			for(M=1;M<=MMI;M++)		//  vypocet logaritmu komponent
+			{	FXM=LW0[M];	for(K=KA[M];K<=KB[M];K++) FXM+=LP[K][X[N_[K]]];
+				FX[M]=FXM;	
+				if(FXM>FMAX) FMAX=FXM;  // FMAX: maximum value of FX[M]
+			}   SUM=RMIN;   // end of M-loop
+			for(M=1;M<=MMI;M++)
+			{	//  FX[M]-FMAX: norming by maximum value to avoid underflow
+				FXM=FX[M]-FMAX;	  FXM=FX[M]=exp(FXM);    SUM+=FXM;	
+			}	// end of M-loop
+			Q=Q+log(SUM)+FMAX;  MFM+=1.0/SUM;  // 1.0/SUM = FMAX/(FMAX*SUM);
+			for(M=1;M<=MMI;M++)  	// EM estimation of mixture parameters
+			{	F=FX[M]/=SUM;  SW[M]+=F;  for(N=1;N<=NN;N++)  SP[M][N][X[N]]+=F;
+				//  F=q(m|x) is not influenced by norming
+			}	//  end of M-loop 
+		}	    //  end of L-loop
+		fclose(TRAIN);  
+		SUM=0.0; for(M=1;M<=MMI;M++) SUM+=SW[M];    
+		Q=Q/SUM;   MFM/=TRQ;  Q+=QPN;   THR=0.0;    // THR: mean informativity 
+		for(M=1;M<=MMI;M++)		// estimation of new component parameters
+		{	G=SW[M];  W[M]=G/SUM; 
+			for(N=1;N<=NN;N++)
+			{	H0=0.0;   SP0=G-SP[M][N][0];
+				for(I=1;I<=4;I++) {F=SP[M][N][I]/=SP0; H0+=F*log(F/PN[I]);}  H0*=W[M];
+				GAMA[M][N]=H0;   THR+=H0;
+			}   // end of N-loop
+		} 	 // end of M-loop
+		K=NN; THR/=(NN*MMI);  THR*=C0;   // THR=0.0; => full model
+		for(M=1;M<=MMI;M++)	         // evaluation of new component parameters
+		{	KA[M]=K+1;
+			for(N=1;N<=NN;N++) 
+			if(GAMA[M][N]>THR) {N_[++K]=N; for(I=1;I<=4;I++) P[K][I]=SP[M][N][I];}
+			else for(I=1;I<=4;I++) SP[M][N][I]=PN[I];   // subtitution by background
+			KB[M]=K;
+		} 	 // end of M-loop
+		DQ=(Q-Q0)/fabs(Q0); F=fabs(DQ);  Q0=Q;  
+		if(F<EPS) break; 
+	  }  //  end of IT-loop   
+	  // ***************************************************************************
+	  KKC=KB[MMI]-NN;   
+	  if(Q>QQ) 
+	  {  QQ=Q; fprintf(Report,
+	     "\n\nIT0=%3d IT=%3d Q=%8.3Lf KKC=%6d MFM=%5.2Lf C0=%5.2Lf",IT0,IT,Q,KKC,MFM,C0);
+	     FULLPARAMOUT(MMI);  RCDISTANCE(MMI);	
+	  }	 // end of if(Q>QQ) 
+	}    // end of IT0-loop  
+	fprintf(Report,"\n=============================================================");
+	fprintf(Report,"\nIT0=%3d Qmax=%10.3Lf",IT0-1,QQ);    fflush(Report);  	return 0;
+}  //  end of EMALGO-procedure  
+
+
+//*******************************************************************************
+int main(int argc, char* argv[])
+{	time_t etim, stim=time(NULL);	
+
+	RANDMAX=double(RAND_MAX)+1.0;	 	srand(INIRAND);  
+	for(I=0;I<1000;I++) SR[I]=rand()/RANDMAX;    for(I=0;I<10000;I++) RR();
+	Report=fopen(FILE_Report,"wt");     
+
+	MINLOG=log(RMIN);      KA[0]=1;  KB[0]=NN;  //   
+	
+	fprintf(Report,"\nGENOM_S: Odhad parametru strukturni smesi: COEF=%4.1lf\n",COEF);
+	fprintf(Report,"\nPocet promennych v datovem vektoru         NN=%10d",NN);     
+	fprintf(Report,"\nPocet radku ve zdrojovem souboru SOURCE0 (C0)  TR =%10d",TR );
+	fprintf(Report,"\n\nPravdepodobnosti pozadi nonIS : ");
+	for(I=1;I<5;I++) fprintf(Report,"%7.4lf",PN[I]);
+	fprintf(Report,"\nP[1]:A zluta;  P[2]:C modra;  P[3]:G cervena;  P[4]:T zelena");  
+	fprintf(Report,"\n=============================================================");
+	fflush(Report); 
+
+	EMALGO(8,TR);   
+	goto L0;
+	
+	
+ L0:etim=time(NULL);
+	fprintf(Report,"\n\nEnd of GENOM_S, CPU time: %g sec.\n\n",difftime(etim,stim));
+  	fclose(Report);		
+	return 0;
+}
+
