@@ -6,7 +6,7 @@ The depository is divided into three main parts:
 - **Code**
 - **Results**
 
-The '**Data**' directory includes some of the coordinates of the integration sites that were not previously publicly available. Sources for additional publicky available data sets are named in the 'IS' directory as well as in the publication.
+The '**Data**' directory includes some of the coordinates of the integration sites that were not previously publicly available. Sources for additional publicky available data sets are named in the '**IS**' directory as well as in the publication.
   - **IS** - the directory where information describing inttegration sites is stored. The directory also contains other sample-specific directories where sequences of ranges around the integration sites are stored. When running the code, coordinates of the integration sites should be stored in sample-specific directories.
   - **Annotations** - other-than-IS data needed for results reproduction. The data stored here relates to the Alu sequences and "HIV hotspot" part of the study.
 
