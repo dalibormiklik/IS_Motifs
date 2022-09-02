@@ -6,7 +6,7 @@ The study-supporting data are separated into three main parts:
 - **Code**
 - **Results**
 
-The GitHub * **IS_Motifs** * repository contains only the '**Code**' directory. The '**Data**' and the '**Results**' directories are beeing save elsewhere. The three parts, however, make a complete study data set. Therefore the whole data set is described in this file.
+The GitHub ***IS_Motifs***  repository contains only the '**Code**' directory. The '**Data**' and the '**Results**' directories are beeing save elsewhere. The three parts, however, make a complete study data set. Therefore the whole data set is described in this file.
 
 The '**Data**' directory includes some of the coordinates of the integration sites that were not previously publicly available. Sources for additional publicky available data sets are named in the '**IS**' directory as well as in the publication.
   - **IS** - the directory where information describing inttegration sites is stored. The directory also contains other sample-specific directories where sequences of ranges around the integration sites are stored. When running the code, coordinates of the integration sites should be stored in sample-specific directories.
