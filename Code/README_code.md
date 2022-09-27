@@ -1,7 +1,7 @@
 The **Code** directory contains 5 directories sorted as used in the study:
  1. **01_PreMix** - pre-mixture model code - generates integration site ranges and the final outputs are a tables of the numeric-coded sequences that serve as an input for mixture model.
  2. **02_Mix** - mixture model - runs EM algorithm and outputs reports from which data describing the mixture components can be extracted.
- 3. **03_PostMix** post-mixture model code - single shell *extract_PPM code that extract the information about the mixture components
+ 3. **03_PostMix** - post-mixture model code - single shell *extract_PPM code that extract the information about the mixture components
  4. **04_HotSpot** - code creating the data for the analysis of the hotspot targeting
  5. **05_Figures** - R code that creates the Figures found in the publication
 
@@ -14,7 +14,7 @@ add **1.**
 	*Get_IS_coordinates.sh* - describes how coordinates of IS were obtained
 	*Create_Ranges.sh* - creates ranges surrounding IS from IS coordinates
 	*Get_IS_seq.sh* - extracts sequences of ranges from reference genomes (not provided, needs to be obtained separatelly) and transforms nucleotide sequences to numeric sequences used as input for the EM algorithm
-	
+
 add **2.**
 	*MixProductPAPER.cpp.txt* - a C++ code running the EM algorithm. PARAM.GEN and Report.GEN files are output
 
