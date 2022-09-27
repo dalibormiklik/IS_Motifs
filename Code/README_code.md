@@ -20,6 +20,7 @@ add **2.**
 
 add **3.**
 	*extract_PPMs.sh* - extracts PPMs and component weights from the EM algorith PARAM.GEN file
+
 add **4.**
 	**CompSeq** - directory with R code that identifies and selects the sequences associted with given mixture component
 	            - contains main script (*SeqMemFun.R*) and supportive scripts (*Functions.R*, *Load_mixPPM.R*)
