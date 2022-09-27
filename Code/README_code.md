@@ -25,7 +25,7 @@ add **3.**
 add **4.**
 	**CompSeq** - directory with R code that identifies and selects the sequences associted with given mixture component
 	            - contains main script (*SeqMemFun.R*) and supportive scripts (*Functions.R*, *Load_mixPPM.R*)
-	*rmsk_to_BED.sh* - transforms rmsk.txt to BED + extract Alu coorinates and save as separated file
+        *rmsk_to_BED.sh* - transforms rmsk.txt to BED + extract Alu coorinates and save as separated file
 	*RMSK_target.sh* - quantifies targeting of repeats
 	*Map_IS_to_Alu_consensus.sh* - maps component-associated IS to Alu consensus sequence
 	*Extract_Alu_BED.sh* - creates BED file with Alu coordinates
