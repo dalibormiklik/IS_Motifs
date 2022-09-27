@@ -10,6 +10,7 @@ Most of the '*.sh*' code is a standole code with its own variables and should be
 ---
 
 Code files present in the directories:
+
 add **1.**
 	*Get_IS_coordinates.sh* - describes how coordinates of IS were obtained
 	*Create_Ranges.sh* - creates ranges surrounding IS from IS coordinates
